@@ -22,8 +22,13 @@ module pe #(
 
     always_ff @(posedge i_clk) begin
         if (!rst_n) begin
-            o_psum <= '0;
-            o_data <= '0;
+            data_r   <= '0;
+            weight_r <= '0;
+            psum_r   <= '0;
+            mult_r   <= '0;
+            mac_r    <= '0;
+            o_psum   <= '0;
+            o_data   <= '0;
             o_weight <= '0;
         end else begin
             data_r <= i_data;
