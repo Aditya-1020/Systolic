@@ -33,7 +33,7 @@ module systolic_array #(
         next_clear_pipe = clear_pipe;
         next_clear_pipe[0] = {N*N{i_clear}};
         for (int s = 1; s < PIPE_STAGES; s++) begin
-            next_clear_pipe[s] <= clear_pipe[s-1];
+            next_clear_pipe[s] = clear_pipe[s-1];
         end
     end
 
