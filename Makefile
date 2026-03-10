@@ -32,3 +32,8 @@ run: elab
 clean:
 	rm -rf *.log *.jou *.pb xsim.dir *.wdb sim_* .vec_* \
 	       scripts/__pycache__ *.hex tb/__pycache__
+
+NS := 2 8 16 32 64
+
+n_sweep:
+	$(foreach n,$(NS),$(MAKE) N=$(n) clean run;)

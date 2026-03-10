@@ -13,6 +13,7 @@ xsim.dir/
 # Python
 __pycache__/
 *.pyc
+venv/
 
 # Other
 dump/
