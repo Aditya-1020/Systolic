@@ -3,9 +3,9 @@
 timeunit 1ns; timeprecision 1ps;
 
 module bram #(
-    parameter DATA_WIDTH = 8,
-    parameter DEPTH = 4096, // N_MAX^2 = 64^2
-    parameter ADDR_WIDTH = $clog2(DEPTH)
+    parameter int unsigned DATA_WIDTH = 8,
+    parameter int unsigned DEPTH = 4096, // N_MAX^2 = 64^2
+    parameter int unsigned ADDR_WIDTH = $clog2(DEPTH)
 )(
     // host write
     input logic i_a_clk,
@@ -21,7 +21,6 @@ module bram #(
 );
 
     (* ram_style = "block" *)
-    (* rstreg_priority_b = "REGCE" *)
     logic [DATA_WIDTH-1:0] mem [0:DEPTH-1];
 
     // Port A

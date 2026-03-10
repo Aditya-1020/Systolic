@@ -34,22 +34,21 @@ module top #(
     logic signed [N-1:0][DATA_WIDTH-1:0]  sa_data, sa_weight;
     logic signed [N-1:0][N-1:0][ACCUM_WIDTH-1:0] sa_result;
     logic sa_done;
+    logic feed_valid; // high during FEED stage
 
     genvar i;
     generate
         for (i = 0; i < N; i++) begin : unpack
             assign sa_data[i] = feed_valid ? $signed(bram_a_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
             assign sa_weight[i] = feed_valid ? $signed(bram_b_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
-            
-            // assign sa_data[i]   = $signed(bram_a_dout[i*DATA_WIDTH +: DATA_WIDTH]);
-            // assign sa_weight[i] = $signed(bram_b_dout[i*DATA_WIDTH +: DATA_WIDTH]);
         end
     endgenerate
     
-    assign result = signed'(sa_result[rd_row][rd_col]);
-    assign done = sa_done && !error_detected;
-
-    assign error_detected = controller_error | sa_error;
+    always_comb begin
+        result = signed'(sa_result[rd_row][rd_col]);
+        done = sa_done && !error_detected;
+        error_detected = controller_error | sa_error;
+    end
 
     // bram a
     bram #(.DATA_WIDTH(N*DATA_WIDTH), .DEPTH(DEPTH), .ADDR_WIDTH(ADDR_WIDTH)) bram_a_inst (

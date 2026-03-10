@@ -17,16 +17,11 @@ module pe #(
     localparam int unsigned MULT_WIDTH = 2*DATA_WIDTH;
 
     logic signed [DATA_WIDTH-1:0] data_r, weight_r;
-    (* use_dsp = "yes" *) logic signed [MULT_WIDTH-1:0] mult_r;
+    logic signed [MULT_WIDTH-1:0]  mult_r;
     logic signed [ACCUM_WIDTH-1:0] accum, next_accum;
+    logic clear_d1, clear_d2;
 
-    always_comb begin
-        if (i_clear_accum) begin
-            next_accum = '0;
-        end else begin
-            next_accum = accum + ACCUM_WIDTH'(mult_r);
-        end
-    end
+    assign next_accum = clear_d2 ? '0 : accum + ACCUM_WIDTH'(mult_r);
 
     always_ff @(posedge i_clk) begin
         if (!i_rst_n) begin
@@ -37,7 +32,11 @@ module pe #(
             o_result <= '0;
             o_data <= '0;
             o_weight <= '0;
+            clear_d1 <= '0;
+            clear_d2 <= '0;
         end else begin
+            clear_d1 <= i_clear_accum;
+            clear_d2 <= clear_d1;
             data_r <= i_data;
             weight_r <= i_weight;
             mult_r <= signed'(data_r) * signed'(weight_r);

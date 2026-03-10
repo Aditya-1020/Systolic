@@ -16,7 +16,7 @@ module controller #(
     output logic o_error
 );
     initial begin
-        assert (N >= 2 && N <= (1 << 16)) else $fatal(1, "N oout of range");
+        assert (N >= 2 && N <= (1 << 16)) else $fatal(1, "N out of range");
         assert (ADDR_WIDTH >= $clog2(N))   else $fatal(1, "ADDR_WIDTH too small");
     end
 
@@ -46,14 +46,15 @@ module controller #(
         next_valid = 1'b0;
         next_error = o_error;
         
-        unique case (state)
+        case (state)
             IDLE: begin
                 if (i_start && !o_error) begin
                     next_clear = 1'b1;
                     next_state = CLEAR;
-                end else if (i_start && o_error) begin
+                end 
+                /* else if (i_start && o_error) begin
                     next_error = 1'b1;
-                end
+                end */
             end
 
             CLEAR: begin
@@ -83,6 +84,8 @@ module controller #(
                     next_state = IDLE;
                 end
             end
+
+            default: next_state = IDLE;
         endcase
     end
     

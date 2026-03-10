@@ -16,7 +16,7 @@ module systolic_array #(
     output logic o_error
 );
     localparam int unsigned DONE_CYCLE = 3*N;
-    localparam int unsigned PIPE_STAGES = DONE_CYCLE;
+    localparam int unsigned PIPE_STAGES = 2*N - 1;
     localparam int unsigned CNT_WIDTH = $clog2(DONE_CYCLE + 1);
 
     initial begin
@@ -24,31 +24,26 @@ module systolic_array #(
         assert (DATA_WIDTH <= 16) else $fatal(1, "DATA_WIDTH too wide");
         assert (PIPE_STAGES <= 256) else $fatal(1, "PIPE too deep");
     end
+
     logic signed [N-1:0][N:0][DATA_WIDTH-1:0] data_w;
     logic signed [N:0][N-1:0][DATA_WIDTH-1:0] weight_w;
 
-    // clear pipeline
-    logic [PIPE_STAGES-1:0][N*N-1:0] clear_pipe, next_clear_pipe;
-    always_comb begin
-        next_clear_pipe = clear_pipe;
-        next_clear_pipe[0] = {N*N{i_clear}};
-        for (int s = 1; s < PIPE_STAGES; s++) begin
-            next_clear_pipe[s] = clear_pipe[s-1];
-        end
-    end
+    logic [PIPE_STAGES-1:0][N*N-1:0] clear_pipe;
 
     always_ff @(posedge i_clk) begin
         if (!i_rst_n) begin
             clear_pipe <= '0;
         end else begin
-            clear_pipe <= next_clear_pipe;
+            clear_pipe[0] <= {(N*N){i_clear}};
+            for (int s = 1; s < int'(PIPE_STAGES); s++)
+                clear_pipe[s] <= clear_pipe[s-1];
         end
     end
 
     // Done counter
     logic [CNT_WIDTH-1:0] cycle_cnt;
     logic active; // set by i_clear pulse, cleared when done
-    logic next_done, next_error;
+
     always_ff @(posedge i_clk) begin
         if (!i_rst_n) begin
             cycle_cnt <= '0;
@@ -61,16 +56,18 @@ module systolic_array #(
             o_done <= 1'b0;
             o_error <= 1'b0;
         end else begin
-            o_done  <= next_done;
-            o_error <= next_error | o_error;
-            if (active && cycle_cnt < DONE_CYCLE) begin
-                cycle_cnt <= cycle_cnt + 1'b1;
+            o_done <= 1'b0;
+            if (active) begin
+                if (cycle_cnt < CNT_WIDTH'(DONE_CYCLE)) begin
+                    cycle_cnt <= cycle_cnt + 1'b1;
+                end else begin
+                    active <= 1'b0;
+                    o_done <= 1'b1;
+                    o_error <= (cycle_cnt > CNT_WIDTH'(DONE_CYCLE)) | o_error;
+                end
             end
         end
     end
-
-    assign next_done  = active && (cycle_cnt >= DONE_CYCLE);
-    assign next_error = active && (cycle_cnt > DONE_CYCLE[$clog2(DONE_CYCLE+1)-1:0]);
 
     genvar r,c;
     generate
