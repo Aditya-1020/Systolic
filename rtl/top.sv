@@ -38,8 +38,11 @@ module top #(
     genvar i;
     generate
         for (i = 0; i < N; i++) begin : unpack
-            assign sa_data[i]   = $signed(bram_a_dout[i*DATA_WIDTH +: DATA_WIDTH]);
-            assign sa_weight[i] = $signed(bram_b_dout[i*DATA_WIDTH +: DATA_WIDTH]);
+            assign sa_data[i] = feed_valid ? $signed(bram_a_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
+            assign sa_weight[i] = feed_valid ? $signed(bram_b_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
+            
+            // assign sa_data[i]   = $signed(bram_a_dout[i*DATA_WIDTH +: DATA_WIDTH]);
+            // assign sa_weight[i] = $signed(bram_b_dout[i*DATA_WIDTH +: DATA_WIDTH]);
         end
     endgenerate
     
@@ -82,7 +85,7 @@ module top #(
         .o_bram_en(bram_en),
         .o_addr_a(rd_addr_a),
         .o_addr_b(rd_addr_b),
-        .o_valid( /*unsied due to BRAM latency*/),
+        .o_valid(feed_valid),
         .o_error(controller_error)
     );
 

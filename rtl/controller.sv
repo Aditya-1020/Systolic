@@ -20,7 +20,8 @@ module controller #(
         assert (ADDR_WIDTH >= $clog2(N))   else $fatal(1, "ADDR_WIDTH too small");
     end
 
-    localparam int unsigned FEED_CNT_WIDTH = $clog2(N);
+    localparam int unsigned FEED_LEN = 2*N -1;
+    localparam int unsigned FEED_CNT_WIDTH = $clog2(FEED_LEN + 1);
 
     typedef enum logic [3:0] {
         IDLE  = 4'b0001,
@@ -51,7 +52,7 @@ module controller #(
                     next_clear = 1'b1;
                     next_state = CLEAR;
                 end else if (i_start && o_error) begin
-                    next_error = 1'b1; // illlegal restart
+                    next_error = 1'b1;
                 end
             end
 
@@ -64,19 +65,20 @@ module controller #(
             end
 
             FEED: begin
-                next_bram_en = 1'b1;
                 next_valid = 1'b1;
-                next_addr_a = ADDR_WIDTH'(feed_cnt + 1'b1);
-                next_addr_b = ADDR_WIDTH'(feed_cnt + 1'b1);
-                next_feed_cnt = feed_cnt + 1'b1;
-                if (int'(feed_cnt) == N-1) begin
+                if (int'(feed_cnt) == FEED_LEN-1) begin
                     next_bram_en = 1'b0;
+                    next_feed_cnt = feed_cnt;
                     next_state = WAIT;
+                end else begin
+                    next_bram_en = 1'b1;
+                    next_feed_cnt = feed_cnt + 1'b1;
+                    next_addr_a = ADDR_WIDTH'(feed_cnt + 1'b1);
+                    next_addr_b = ADDR_WIDTH'(feed_cnt + 1'b1);
                 end
             end
 
             WAIT: begin
-                next_bram_en = 1'b0;
                 if (i_done) begin
                     next_state = IDLE;
                 end
@@ -105,4 +107,5 @@ module controller #(
             o_error <= next_error;
         end
     end
+
 endmodule

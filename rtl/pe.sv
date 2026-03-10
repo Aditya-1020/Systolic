@@ -1,4 +1,4 @@
-// Processing Element: performs A*B accumulation
+// Processing Element: A*B accumulation
 timeunit 1ns; timeprecision 1ps;
 
 module pe #(
@@ -20,9 +20,6 @@ module pe #(
     (* use_dsp = "yes" *) logic signed [MULT_WIDTH-1:0] mult_r;
     logic signed [ACCUM_WIDTH-1:0] accum, next_accum;
 
-    assign o_data = i_data;
-    assign o_weight = i_weight;
-
     always_comb begin
         if (i_clear_accum) begin
             next_accum = '0;
@@ -38,13 +35,16 @@ module pe #(
             mult_r <= '0;
             accum <= '0;
             o_result <= '0;
+            o_data <= '0;
+            o_weight <= '0;
         end else begin
             data_r <= i_data;
             weight_r <= i_weight;
             mult_r <= signed'(data_r) * signed'(weight_r);
             accum <= next_accum;
-            o_result <= next_accum; // registerd out
+            o_result <= next_accum;
+            o_data <= i_data;
+            o_weight <= i_weight;
         end
-        
     end
 endmodule

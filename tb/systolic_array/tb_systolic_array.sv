@@ -12,7 +12,7 @@ module tb_systolic_array;
 
     localparam TOTAL_CYCLES = 2 * N - 1;
     localparam RUN_CYCLES   = 3 * N;
-    localparam PIPE_DELAY   = 2;
+    // localparam PIPE_DELAY   = 2;
 
     logic clk, rst_n;
     logic signed [N-1:0][DATA_WIDTH-1:0] data, weight;
