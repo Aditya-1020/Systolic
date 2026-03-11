@@ -52,9 +52,6 @@ module controller #(
                     next_clear = 1'b1;
                     next_state = CLEAR;
                 end 
-                /* else if (i_start && o_error) begin
-                    next_error = 1'b1;
-                end */
             end
 
             CLEAR: begin
@@ -74,8 +71,8 @@ module controller #(
                 end else begin
                     next_bram_en = 1'b1;
                     next_feed_cnt = feed_cnt + 1'b1;
-                    next_addr_a = ADDR_WIDTH'(feed_cnt + 1'b1);
-                    next_addr_b = ADDR_WIDTH'(feed_cnt + 1'b1);
+                    next_addr_a = ADDR_WIDTH'(feed_cnt) + 1'b1;
+                    next_addr_b = ADDR_WIDTH'(feed_cnt) + 1'b1;
                 end
             end
 
