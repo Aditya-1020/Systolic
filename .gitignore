@@ -22,7 +22,7 @@ dump/
 
 # Vivado
 .Xil
-project_1/
+fpga/project_1/
 
 
 # Physical Design
