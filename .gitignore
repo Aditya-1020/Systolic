@@ -19,6 +19,8 @@ venv/
 # Other
 dump/
 .vscode/
+data/
+tb/inference/inference_vectors
 
 # Vivado
 .Xil
