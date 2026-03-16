@@ -1,51 +1,68 @@
 # AdiSystolic
-A 4x4 output-stationary systolic array accelerator designed in SystemVerilog and physically implemented on SKY130B PDK via Openlane2
+An output-stationary 4x4 systolic array accelerator for inference designed in SystemVerilog, physically implemented on SKY130B via OpenLane 2, and demonstrated running INT8 MNIST inference with cycle-accurate RTL simulation.
 
 <img src="design/layout_image.png" width="800" alt="Klayout screenshot">
 
+## What this is
+Manged to mapp the inference all the way down the silicon.
+A TinyCNN trained on MNIST (96.82% Float accuracy) is quantized ot INT8 using symmetric quantization. The FC2 inference layer is decomposed into 48 sequential 4x4 matrix multiplications and fed through the systolic array RTL. All 768 accumulator outputs are verified cycle-accurate against a golden model in Vivado Xsim using the same RTL that was implemented in SKY130B.
+
 # Architecture
-Design Computes a NxN matrix multiplication C=A*B using 2D grid of MAC processing elements. Data flows right across rows and weights flow down across columns.
-Each PE accumulates its partal sum locally across 2N-1 feed cycles, draining to final result in 3N total cycles
+The array computes `C = A x B` using a 2D grid of MAC processing elements (PE). Data flows right across rows and weights down across columns. Each PE accumulating its partial sum locally across `2N-1` feed cycles draining to final result in `3N` cycles.
 
-Ping-Pong Buffers: While the array is computing one matrix pair, the host can load the next pair into the idle bank. On completion, controller pulses `o_swap` and banks flip (0 cycles are wasted between back-to-back multiplications)
+Ping-Pong Buffers: While the array is computing one tile, the host loads the next pair into the idle bank. On completion, controller pulses `o_swap` and banks flip (0 cycles are wasted between back-to-back multiplications).
 
-**Controller FSM**
-4 States {IDLE, CLEAR, FEED, WAIT}:
-- CLEAR: pulses when accummulator resets and addresses are set to 0.
-- FEED: streams 2N-1 rows to array when staggered addressing.
-- WAIT: Holds until array asserts done then pulsing swap and returning to default state IDLE
+**Controller FSM** 4 States `IDLE, CLEAR, FEED, WAIT`
+- CLEAR: resets accumulator to 0.
+- FEED: streams 2N-1 staggered rows to the array.
+- WAIT: holds until array asserts `done`, pulsing `swap` and returns to `IDLE`.
 
-A shift register inside the array delays clear pulse by r+c cycles for PE[r][c], So every PE's accumulator resets when its first valid product arrives.
+A shift register inside the array delays clear pulse by `r+c` cycles for `PE[r][c]`, so every PE's accumulator resets exactly when first valid product arrives
+
+**INT8 Inference Map**
+FC2 computes `y=W(10*64) @ x(64)`. Mapped onto the systolic array as:
+- `A_tile`: weight rows (flows as data)
+- `B_tile`: activation slice (replicated as N identical cols)
+- `C_out`: is the dot product of A and B tiles
+
+3 row-tiles x 16 col-tiles = 48 matmul tiles per inference pass.
+
 
 ## File Structure
 ```sh
-.
+AdiSystolic/
 ├── design/         # ASIC design flow files (no bram)
-└── systolic_array/
-    ├── config.json
-    ├── design.sdc
-    ├── runs/
-    └── src/
-        ├── buffer.sv
-        ├── controller.sv
-        ├── pe.sv
-        ├── systolic_array.sv
-        └── top_asic.sv
+│   └── systolic_array/
+│     ├── config.json
+│     ├── design.sdc
+│     └── src/     # ASIC RTL (no BRAM, ping-pong regfile)
+├── model/
+│   └── train_and_export.py
 ├── fpga/            # FPGA constraints
 ├── Makefile
 ├── README.md   
-├── rtl/            # RTL Sources (bram and buffer both present)
-├── scripts/        # Script to support TB vector generation
-├── tb/             # Testbenches
+├── rtl/            # FPGA RTL (with Xilinx BRAM instantiation)
+├── scripts/        # Shared hex vector utilities
+├── tb/
+│   ├── pe/                   # PE unit testbench
+│   ├── systolic_array/       # Array-level testbench
+│   ├── top/                  # Full top-level integration testbench
+│   └── inference/            # MNIST INT8 inference testbench
+│       ├── gen_inference.py  # Vector presence checker (stub for Makefile)
+│       └── tb_inference.sv   # 48-tile FC2 inference verification
+├── Makefile
+└── requirements.txt
 ```
 
 ## Parameters
-All parameters are computed in `top_asic.sv` and passed as literals to submodules. Avoiding `$clog2$` in port list for ASIC design.
-| Parameter   | Default | Notes                                    |
-| ----------- | ------- | ---------------------------------------- |
-| N           | 4       | Matrix dimension. Supported: 2, 4, 8, 16 |
-| DATA_WIDTH  | 8       | Input data width in bits                 |
-| ACCUM_WIDTH | 32      | Accumulator width in bits                |
+All parameters are computed in `top_fpga.sv`/`top_asic.sv` and passed and passed as literals to submodules. 
+- `$clog2` avoided in port lists for ASIC compatilibility.
+
+| Parameter   | Default | Notes                           |
+| ----------- | ------- | --------------------------------|
+| N           | 4       | Matrix dimensions (2, 4, 8, 16) |
+| DATA_WIDTH  | 8       | Input data width in bits        |
+| ACCUM_WIDTH | 32      | Accumulator width in bits       |
 
 - When changing N, update only `localparam` block in `top_asic.sv`.
 
@@ -78,30 +95,40 @@ Worst-corner Fmax: (max_ss_100C_1v50): 1000/(20.0 - 6.84) = 76 Mhz
 Nominal Fmax: (nom_tt_025C_1v80): 1000/(20.0 - 12.73) = 137 Mhz
 
 
-## **How To Run Simulation**
-Requires Python 3, Verilator or Xsim (Vivado), and Make.
-```bash
-# Generate test vectors and run simulation (N=4, 10 random test cases)
-make clean
-make TB=tb_top N=4 NUM=10
-
-# Run with different matrix size
-make clean
-make TB=tb_top N=8 NUM=20
+## How to Run Inference Simulation
+**Setup**
+```sh
+pip install -r requirements.txt
 ```
+**Train, Quantize and export vectors**
+```sh
+python model/train_and_export.py
+```
+Downloads MNIST automatically, trains for 5 epochs, exports INT8 weights and staggered feed vectors to `tb/inference/inference_vectors/`.
+**Run RTL simulation**
+```sh
+make clean && make TB=tb_inference N=4
+```
+---
+## How to Run Matix mulitplication Simulation
+```sh
+# N=4, 10 random test cases
+make clean && make TB=tb_top N=4 NUM=10
 
-## **How To Run the Physical Flow**
-Requires OpenLane 2 in a nix-shell environment with SKY130B PDK installed via volare.
-``` bash
+# sweep multiple array sizes
+make n_sweep
+```
+---
+## How To Run the Physical Flow
+Requires OpenLane2 in a nix-shell environment with SKY130B PDK installed.
+```sh
 cd design/
 openlane systolic_array/config.json
 ```
-Results land in systolic_array/runs/RUN_<timestamp>/final/:
+Results land in `systolic_array/runs/RUN_<timestamp>/final/`.
 
-
-**View the GDS**
-```bash
+**Viewing the GDS**
+```sh
 klayout final/gds/top_asic.gds \
   -l $PDK_ROOT/sky130A/libs.tech/klayout/tech/sky130A.lyp
 ```
-
