@@ -21,10 +21,12 @@ dump/
 .vscode/
 data/
 tb/inference/inference_vectors
+inference_vectors/
 
 # Vivado
 .Xil
 fpga/project_1/
+systolic_fpga_archived/
 
 
 # Physical Design

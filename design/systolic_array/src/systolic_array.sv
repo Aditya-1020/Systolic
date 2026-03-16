@@ -1,9 +1,4 @@
 // systolic_array.sv — N×N output-stationary systolic array
-// MULT_WIDTH removed from pe instantiation (pe derives it from DATA_WIDTH).
-// PIPE_STAGES, DONE_CYCLE, CNT_WIDTH moved to localparam — they are purely
-// internal, derived from N, and have no business being top-level parameters.
-// signed'() replaced with $signed() for Yosys compatibility.
-
 module systolic_array #(
     parameter int N           = 4,
     parameter int DATA_WIDTH  = 8,

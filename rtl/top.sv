@@ -1,7 +1,6 @@
-// top_asic.sv; ASIC top-level, SKY130B via OpenLane 2
-
-module top_asic #(
-    parameter int N           = 4,
+// top.sv
+module top #(
+    parameter int N = 4,
     parameter int DATA_WIDTH  = 8,
     parameter int ACCUM_WIDTH = 32
 )(
@@ -10,10 +9,10 @@ module top_asic #(
     input logic i_start,
     input logic wr_en_a,
     input logic wr_en_b,
-    input logic [2:0] wr_addr,   // ADDR_WIDTH=3 for N=4
-    input logic [31:0] wr_data,   // ROW_WIDTH=32 for N=4
-    input logic [2:0] rd_row,
-    input logic [2:0] rd_col,
+    input logic [$clog2(2*N-1)-1:0] wr_addr,
+    input logic [N*DATA_WIDTH-1:0]  wr_data,
+    input logic [$clog2(N)-1:0]     rd_row,
+    input logic [$clog2(N)-1:0]     rd_col,
     output logic signed [ACCUM_WIDTH-1:0] result,
     output logic done,
     output logic error,
@@ -25,7 +24,6 @@ module top_asic #(
     localparam int ADDR_WIDTH = $clog2(FEED_LEN);
     localparam int ROW_WIDTH = N * DATA_WIDTH;
 
-    // Internal wires
     logic clear_sig;
     logic [ADDR_WIDTH-1:0] addr_a_sig, addr_b_sig;
     logic valid_sig, swap_sig;
@@ -33,13 +31,14 @@ module top_asic #(
     logic [ROW_WIDTH-1:0] buf_a_dout, buf_b_dout;
 
     logic signed [N-1:0][DATA_WIDTH-1:0] sa_data, sa_weight;
-    logic signed [N-1:0][N-1:0][ACCUM_WIDTH-1:0]  sa_result;
+    logic signed [N-1:0][N-1:0][ACCUM_WIDTH-1:0] sa_result;
 
-    // Gate data/weight on valid_sig — zeros flush stale buffer output
+    // Gate inputs on valid
+    // flush stale buffer output between tiles
     genvar i;
     generate
         for (i = 0; i < N; i++) begin : gen_gate
-            assign sa_data[i] = valid_sig ? $signed(buf_a_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
+            assign sa_data[i]   = valid_sig ? $signed(buf_a_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
             assign sa_weight[i] = valid_sig ? $signed(buf_b_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
         end
     endgenerate
@@ -49,7 +48,6 @@ module top_asic #(
     assign ctrl_error = ctrl_error_sig;
     assign error = ctrl_error_sig | sa_error_sig;
 
-    // Buffer A
     buffer #(
         .DEPTH      (FEED_LEN),
         .ADDR_WIDTH (ADDR_WIDTH),
@@ -65,7 +63,6 @@ module top_asic #(
         .o_rd_data (buf_a_dout)
     );
 
-    // Buffer B
     buffer #(
         .DEPTH      (FEED_LEN),
         .ADDR_WIDTH (ADDR_WIDTH),
@@ -81,25 +78,23 @@ module top_asic #(
         .o_rd_data (buf_b_dout)
     );
 
-    // Controller FSM
     controller #(
         .FEED_LEN   (FEED_LEN),
         .CNT_W      (CNT_W),
         .ADDR_WIDTH (ADDR_WIDTH)
     ) ctrl_inst (
-        .i_clk     (i_clk),
-        .i_rst_n   (i_rst_n),
-        .i_start   (i_start),
-        .i_done    (sa_done_sig),
-        .o_clear   (clear_sig),
-        .o_addr_a  (addr_a_sig),
-        .o_addr_b  (addr_b_sig),
-        .o_valid   (valid_sig),
-        .o_swap     (swap_sig),
-        .o_error   (ctrl_error_sig)
+        .i_clk    (i_clk),
+        .i_rst_n  (i_rst_n),
+        .i_start  (i_start),
+        .i_done   (sa_done_sig),
+        .o_clear  (clear_sig),
+        .o_addr_a (addr_a_sig),
+        .o_addr_b (addr_b_sig),
+        .o_valid  (valid_sig),
+        .o_swap   (swap_sig),
+        .o_error  (ctrl_error_sig)
     );
 
-    // Systolic array
     systolic_array #(
         .N           (N),
         .DATA_WIDTH  (DATA_WIDTH),
@@ -115,11 +110,13 @@ module top_asic #(
         .o_error  (sa_error_sig)
     );
 
+    // register result
     always_ff @(posedge i_clk) begin
         if (!i_rst_n) begin
             result <= '0;
-        end else begin
-            result <= $signed(sa_result[rd_row][rd_col]);
+        end
+        else begin
+            result <= $signed(sa_result[rd_row][rd_col]);            
         end
     end
 

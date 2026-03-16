@@ -1,6 +1,3 @@
-// FSM: IDLE → CLEAR → FEED → WAIT → IDLE
-// o_swap pulses one cycle on WAIT→IDLE transition.
-
 module controller #(
     parameter int FEED_LEN  = 7,
     parameter int CNT_W     = 3,

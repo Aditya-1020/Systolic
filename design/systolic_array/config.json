@@ -1,5 +1,5 @@
 {
-    "DESIGN_NAME": "top_asic",
+    "DESIGN_NAME": "top",
 
     "VERILOG_FILES": "dir::src/*.sv",
 

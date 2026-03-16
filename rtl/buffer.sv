@@ -18,17 +18,20 @@ module buffer #(
     logic bank_sel;
 
     always_ff @(posedge i_clk) begin
-        if (!i_rst_n)
+        if (!i_rst_n) begin
             bank_sel <= 1'b0;
-        else if (i_swap)
+        end
+        else if (i_swap) begin
             bank_sel <= ~bank_sel;
+        end
     end
 
     always_ff @(posedge i_clk) begin
-        if (i_wr_en)
-            bank[bank_sel][i_wr_addr] <= i_wr_data;
+        if (i_wr_en) begin
+            bank[bank_sel][i_wr_addr] <= i_wr_data;            
+        end
     end
 
-    assign o_rd_data = bank[~bank_sel][i_rd_addr];
+    assign o_rd_data = bank[bank_sel][i_rd_addr];
 
 endmodule
