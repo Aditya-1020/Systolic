@@ -63,6 +63,10 @@ module systolic_array #(
     logic signed [N-1:0][N:0][DATA_WIDTH-1:0] data_w;
     logic signed [N:0][N-1:0][DATA_WIDTH-1:0] weight_w;
 
+    /* verilator lint_off UNUSEDSIGNAL */
+    logic _unused_edge_sink = &{weight_w[N], data_w[0][N], data_w[1][N], data_w[2][N], data_w[3][N]};
+    /* verilator lint_on UNUSEDSIGNAL */
+
     genvar r, c;
     generate
         for (r = 0; r < N; r++) begin : gen_data_in
