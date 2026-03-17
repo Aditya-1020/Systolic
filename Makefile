@@ -7,9 +7,19 @@ PYTHON ?= python3
 MODULE := $(patsubst tb_%,%,$(TB))
 STAMP  := .vec_$(MODULE)_n$(NUM)_s$(SEED)_N$(N)
 
-.PHONY: all vectors compile elab run clean
+.PHONY: all vectors compile elab run clean openlane-shell n_sweep
 
 all: run
+
+openlane-shell:
+	@if [ -n "$$IN_NIX_SHELL" ] || pgrep -f "nix-shell.*$(OL_DIR)" > /dev/null; then \
+		echo "Already in Nix shell or one running for $(OL_DIR)"; \
+	else \
+		cd $(OL_DIR) && nix-shell; \
+	fi
+
+run-pd-flow:
+	openlane design/systolic_array/config.json
 
 $(STAMP): tb/$(MODULE)/gen_$(MODULE).py
 	PYTHONPATH=scripts $(PYTHON) $< -n $(NUM) -s $(SEED) --N $(N) -o .
