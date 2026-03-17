@@ -32,3 +32,6 @@ systolic_fpga_archived/
 # Physical Design
 design/systolic_array/runs
 openlane2/
+
+test.md
+metrics.py

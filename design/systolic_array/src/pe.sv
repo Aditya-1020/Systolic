@@ -1,6 +1,6 @@
 module pe #(
     parameter int DATA_WIDTH  = 8,
-    parameter int ACCUM_WIDTH = 32
+    parameter int ACCUM_WIDTH = 24 // 24
 )(
     input logic i_clk,
     input logic i_rst_n,

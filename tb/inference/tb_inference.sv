@@ -4,13 +4,17 @@ timeunit 1ns; timeprecision 1ps;
     `define N 4
 `endif
 
+`ifndef CLK_NS
+    `define CLK_NS 5.0
+`endif
+
 module tb_inference;
     localparam int unsigned DATA_WIDTH = 8;
-    localparam int unsigned ACCUM_WIDTH = 48;
     localparam int unsigned N = `N;
-    localparam int unsigned BUF_ADDR_WIDTH = $clog2(2*N - 1);
+    localparam int unsigned ACCUM_WIDTH = 2*DATA_WIDTH + $clog2(N) + 8;
+    localparam int unsigned FEED_LEN = 2*N - 1;
+    localparam int unsigned BUF_ADDR_WIDTH = $clog2(FEED_LEN);
     localparam int unsigned ROW_BITS = N * DATA_WIDTH;
-    localparam int unsigned FEED_ROWS = 2 * N - 1;
     localparam int unsigned FC2_ROWS = 10;
     localparam int unsigned FC2_COLS = 64;
     localparam int unsigned PAD_ROWS = ((FC2_ROWS + N - 1) / N) * N;
@@ -18,9 +22,12 @@ module tb_inference;
     localparam int unsigned N_ROW_TILES = PAD_ROWS / N;
     localparam int unsigned N_COL_TILES = PAD_COLS / N;
     localparam int unsigned N_TILES     = N_ROW_TILES * N_COL_TILES;
-    localparam int unsigned TOTAL_FEED_ROWS = N_TILES * FEED_ROWS;
+
+    localparam int unsigned TOTAL_FEED_ROWS = N_TILES * FEED_LEN;
     localparam int unsigned GOLD_ELEMS      = N_TILES * N * N;
-    localparam int unsigned CYCLES_PER_TILE = 5 * N + 20;
+
+    // DONE_CYCLE = 3*N, feed = FEED_LEN, margin
+    localparam int unsigned CYCLES_PER_TILE = 3*N + FEED_LEN;
     localparam int unsigned TIMEOUT_CYCLES  = N_TILES * CYCLES_PER_TILE + 200;
 
     logic clk, rst_n, start;
@@ -54,8 +61,9 @@ module tb_inference;
     );
 
     initial clk = 0;
-    always #5 clk = ~clk;
+    always #(`CLK_NS) clk = ~clk;
 
+    // Vector storage — sized for new FEED_LEN
     logic [ROW_BITS-1:0] raw_a [0:TOTAL_FEED_ROWS-1];
     logic [ROW_BITS-1:0] raw_b [0:TOTAL_FEED_ROWS-1];
     logic [ACCUM_WIDTH-1:0] raw_gold [0:GOLD_ELEMS-1];
@@ -63,7 +71,6 @@ module tb_inference;
 
     int pass_count = 0;
     int fail_count = 0;
-
     string vec_dir = "inference_vectors";
     string suffix;
 
@@ -79,8 +86,8 @@ module tb_inference;
     endtask
 
     task automatic load_tile(input int unsigned tile_idx, input logic is_a);
-        int unsigned base = tile_idx * FEED_ROWS;
-        for (int row = 0; row < int'(FEED_ROWS); row++) begin
+        int unsigned base = tile_idx * FEED_LEN;
+        for (int row = 0; row < int'(FEED_LEN); row++) begin
             @(posedge clk); #1;
             wr_addr = BUF_ADDR_WIDTH'(row);
             if (is_a) begin
@@ -152,19 +159,19 @@ module tb_inference;
         for (int t = 0; t < int'(N_TILES); t++) begin
             for (int r = 0; r < int'(N); r++) begin
                 for (int c = 0; c < int'(N); c++) begin
-                    gold[t][r][c] = signed'(raw_gold[t*N*N + r*N + c]);                    
-                end                
-            end            
+                    gold[t][r][c] = signed'(raw_gold[t*N*N + r*N + c]);
+                end
+            end
         end
 
-        $display("[INIT] N=%0d  FC2 padded %0dx%0d  →  %0dx%0d = %0d tiles", N, PAD_ROWS, PAD_COLS, N_ROW_TILES, N_COL_TILES, N_TILES);
-        $display("[INIT] %0d feed rows/tile, %0d total rows, %0d gold elements", FEED_ROWS, TOTAL_FEED_ROWS, GOLD_ELEMS);
+        $display("[INIT] N=%0d  FC2 padded %0dx%0d  ->  %0dx%0d = %0d tiles", N, PAD_ROWS, PAD_COLS, N_ROW_TILES, N_COL_TILES, N_TILES);
+        $display("[INIT] FEED_LEN=%0d  total feed rows=%0d  gold elements=%0d", FEED_LEN, TOTAL_FEED_ROWS, GOLD_ELEMS);
 
         reset_dut();
 
         for (int tile = 0; tile < int'(N_TILES); tile++) begin
             logic timed_out;
-            $display("[TILE] %0d/%0d  row-tile=%0d  col-tile=%0d", tile, N_TILES - 1, tile / int'(N_COL_TILES), tile % int'(N_COL_TILES));
+            $display("[TILE] %0d/%0d  row-tile=%0d  col-tile=%0d", tile, N_TILES-1, tile/int'(N_COL_TILES), tile%int'(N_COL_TILES));
 
             load_tile(tile, 1'b1);
             load_tile(tile, 1'b0);
@@ -186,22 +193,22 @@ module tb_inference;
         end
 
         $display("\nINFERENCE SUMMARY (N=%0d)", N);
-        $display("Tiles: %0d  (%0dx%0d)", N_TILES, N_ROW_TILES, N_COL_TILES);
-        $display("Elements: %0d", N_TILES * N * N);
-        $display("Pass: %0d", pass_count);
-        $display("Fail: %0d", fail_count);
+        $display("- Tiles: %0d  (%0dx%0d)", N_TILES, N_ROW_TILES, N_COL_TILES);
+        $display("- Elements: %0d", N_TILES * N * N);
+        $display("- Pass: %0d", pass_count);
+        $display("- Fail: %0d", fail_count);
+        $display("- Latency: ~%0d cycles/tile x %0d tiles = ~%0d total cycles",
+                 CYCLES_PER_TILE, N_TILES, CYCLES_PER_TILE * N_TILES);
+        $display("- Throughput: %.0f inferences/sec @ %.0f MHz", 1e9 / (2.0 * `CLK_NS * real'(CYCLES_PER_TILE * N_TILES)), 500.0 / `CLK_NS);
         $display("%s", fail_count == 0 ? "ALL TILES PASSED" : "FAILURES DETECTED");
-        $display("Latency: ~%0d cycles/tile x %0d tiles = ~%0d total cycles", 3*N + FEED_ROWS, N_TILES, (3*N + FEED_ROWS) * N_TILES);
-        $display("Throughput: %.2f inferences/sec @ 100 MHz", 100_000_000.0 / real'((3*N + FEED_ROWS) * N_TILES));
 
         repeat(10) @(posedge clk);
-
         $finish;
     end
 
     initial begin
         #(TIMEOUT_CYCLES * 10ns + 1ms);
-        $error("[GLOBAL TIMEOUT] TB did not complete in time");
+        $error("[GLOBAL TIMEOUT] TB did not complete in TIME");
         $finish;
     end
 

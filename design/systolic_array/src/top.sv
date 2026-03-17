@@ -1,8 +1,7 @@
-// top.sv
 module top #(
     parameter int N = 4,
     parameter int DATA_WIDTH  = 8,
-    parameter int ACCUM_WIDTH = 32
+    parameter int ACCUM_WIDTH = 2*DATA_WIDTH + $clog2(N) + 8
 )(
     input logic i_clk,
     input logic i_rst_n,
@@ -19,8 +18,8 @@ module top #(
     output logic ctrl_error,
     output logic sa_error
 );
-    localparam int FEED_LEN = 2*N - 1;
-    localparam int CNT_W = $clog2(FEED_LEN + 1);
+    localparam int FEED_LEN  = 2*N - 1;
+    localparam int CNT_W     = $clog2(FEED_LEN + 1);
     localparam int ADDR_WIDTH = $clog2(FEED_LEN);
     localparam int ROW_WIDTH = N * DATA_WIDTH;
 
@@ -33,20 +32,18 @@ module top #(
     logic signed [N-1:0][DATA_WIDTH-1:0] sa_data, sa_weight;
     logic signed [N-1:0][N-1:0][ACCUM_WIDTH-1:0] sa_result;
 
-    // Gate inputs on valid
-    // flush stale buffer output between tiles
     genvar i;
     generate
-        for (i = 0; i < N; i++) begin : gen_gate
-            assign sa_data[i]   = valid_sig ? $signed(buf_a_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
-            assign sa_weight[i] = valid_sig ? $signed(buf_b_dout[i*DATA_WIDTH +: DATA_WIDTH]) : '0;
+        for (i = 0; i < N; i++) begin : gen_unpack
+            assign sa_data[i]   = $signed(buf_a_dout[i*DATA_WIDTH +: DATA_WIDTH]);
+            assign sa_weight[i] = $signed(buf_b_dout[i*DATA_WIDTH +: DATA_WIDTH]);
         end
     endgenerate
 
-    assign done = sa_done_sig & ~error;
-    assign sa_error = sa_error_sig;
+    assign done       = sa_done_sig & ~error;
+    assign sa_error   = sa_error_sig;
     assign ctrl_error = ctrl_error_sig;
-    assign error = ctrl_error_sig | sa_error_sig;
+    assign error      = ctrl_error_sig | sa_error_sig;
 
     buffer #(
         .DEPTH      (FEED_LEN),
@@ -103,6 +100,7 @@ module top #(
         .i_clk    (i_clk),
         .i_rst_n  (i_rst_n),
         .i_clear  (clear_sig),
+        .i_valid  (valid_sig),
         .i_data   (sa_data),
         .i_weight (sa_weight),
         .o_result (sa_result),
@@ -110,13 +108,11 @@ module top #(
         .o_error  (sa_error_sig)
     );
 
-    // register result
     always_ff @(posedge i_clk) begin
         if (!i_rst_n) begin
             result <= '0;
-        end
-        else begin
-            result <= $signed(sa_result[rd_row][rd_col]);            
+        end else begin
+            result <= $signed(sa_result[rd_row][rd_col]);
         end
     end
 

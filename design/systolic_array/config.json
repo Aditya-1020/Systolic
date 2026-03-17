@@ -1,37 +1,40 @@
 {
     "DESIGN_NAME": "top",
-
     "VERILOG_FILES": "dir::src/*.sv",
 
     "CLOCK_PORT":   "i_clk",
-    "CLOCK_PERIOD": 20.0,
+    "CLOCK_PERIOD": 8.0,
 
     "PNR_SDC_FILE":     "dir::design.sdc",
     "SIGNOFF_SDC_FILE": "dir::design.sdc",
 
-    "FP_CORE_UTIL":      35,
+    "FP_CORE_UTIL":      42,
     "FP_ASPECT_RATIO":   1,
     "FP_PDN_MULTILAYER": true,
     "FP_PDN_VPITCH":     25,
     "FP_PDN_HPITCH":     25,
 
-    "PL_TARGET_DENSITY_PCT": 40,
+    "PL_TARGET_DENSITY_PCT": 48,
+    "PL_RESIZER_HOLD_SLACK_MARGIN": 0.15,
+    "GRT_RESIZER_HOLD_SLACK_MARGIN": 0.15,
 
-    "SYNTH_STRATEGY":        "AREA 0",
-    "MAX_FANOUT_CONSTRAINT": 8,
+    "SYNTH_STRATEGY":        "DELAY 1",
+    "MAX_FANOUT_CONSTRAINT": 6,
     "SYNTH_DRIVING_CELL":    "sky130_fd_sc_hd__inv_4",
 
     "RUN_ANTENNA_REPAIR": true,
     "GRT_ANTENNA_ITERS":  15,
     "RT_MAX_LAYER":       "met4",
 
-    "DESIGN_REPAIR_MAX_SLEW_PCT":     20,
-    "DESIGN_REPAIR_MAX_CAP_PCT":      20,
-    "GRT_DESIGN_REPAIR_MAX_SLEW_PCT": 20,
+    "DESIGN_REPAIR_MAX_SLEW_PCT":     30,
+    "DESIGN_REPAIR_MAX_CAP_PCT":      25,
+    "GRT_DESIGN_REPAIR_MAX_SLEW_PCT": 25,
+    "GRT_DESIGN_REPAIR_MAX_CAP_PCT":  15,
 
     "RUN_POST_GRT_RESIZER_TIMING": true,
+    "RUN_POST_GRT_DESIGN_REPAIR":  true,
 
-    "SYNTH_BUFFER_MAP": "",
-    "CLOCK_BUFFER_FANOUT": 16,
-    "CTS_CLK_BUFFER_LIST": "sky130_fd_sc_hd__clkbuf_4 sky130_fd_sc_hd__clkbuf_8 sky130_fd_sc_hd__clkbuf_16"
+    "CTS_CLK_BUFFERS": ["sky130_fd_sc_hd__clkbuf_4", "sky130_fd_sc_hd__clkbuf_8", "sky130_fd_sc_hd__clkbuf_16"],
+
+    "DIODE_ON_PORTS": "out"
 }

@@ -119,7 +119,7 @@ make clean && make TB=tb_top N=4 NUM=10
 make n_sweep
 ```
 ---
-## How To Run the Physical Flow
+## How To Run the Physical Flow`
 Requires OpenLane2 in a nix-shell environment with SKY130B PDK installed.
 ```sh
 cd design/
